@@ -1,63 +1,85 @@
-# Arquitetura do Sistema IDURAR ERP CRM
+# IDURAR ERP/CRM Architecture
 
-## Visão Arquitetural
+## Overview
 
-IDURAR é uma aplicação web full-stack baseada na arquitetura MERN (MongoDB, Express.js, React.js, Node.js). O backend é um servidor REST API construído com Express.js, que se conecta a um banco de dados MongoDB usando Mongoose. O frontend é uma aplicação React.js que consome a API REST.
+IDURAR ERP/CRM is a modular MERN stack application designed for extensibility, maintainability, and scalability. It separates concerns clearly between backend and frontend, with reusable components and middleware.
 
-## Componentes/Camadas e Responsabilidades
+## Backend Architecture
 
-- **Frontend (React.js):** Interface do usuário, formulários, roteamento, estado global via Redux, internacionalização.
-- **Backend (Node.js/Express.js):** API REST, autenticação JWT, controle de permissões, lógica de negócio, manipulação de uploads, geração de PDFs.
-- **Banco de Dados (MongoDB):** Armazenamento de dados de entidades como Admin, Employee, Invoice, Client, etc.
-- **Middleware:** Segurança (helmet, cors), tratamento de erros, upload de arquivos (multer), permissões baseadas em roles.
+### Modular Design
 
-## Integrações Externas e Pontos de Acoplamento
+- **Core Controllers:** Handle system-wide functionalities such as admin management, settings, authentication, and email templates.
+- **App Controllers:** Manage business domain entities like clients, invoices, quotes, payments, offers, suppliers, and inventory.
 
-- MongoDB Atlas ou instância MongoDB externa (via URI em `.env`)
-- SMTP para envio de emails (configurado via settings, evidência em setup/config/appConfig.json)
-- Frontend proxy para backend configurado via Vite (frontend/vite.config.js)
+### CRUD Middleware
 
-## Fluxo Principal do Sistema
+- A generic CRUD controller factory (`createCRUDController`) dynamically generates standard CRUD operations for any Mongoose model.
+- This reduces code duplication and centralizes error handling and response formatting.
 
-1. **Inicialização:**
-   - Backend conecta ao MongoDB (backend/server.js).
-   - Modelos Mongoose são carregados dinamicamente (glob em backend/server.js).
-   - Servidor Express é iniciado (backend/app.js).
+### Custom Business Logic
 
-2. **Autenticação:**
-   - Usuário envia credenciais para `/api/login` (backend/routes/coreRoutes/coreAuth.js).
-   - JWT é gerado e validado em rotas protegidas (middleware isValidAdminToken).
+- Certain controllers extend the generic CRUD with custom methods, e.g., taxController disables delete and manages default tax logic.
+- Invoice and quote controllers handle PDF generation, email sending, and quote-to-invoice conversion.
 
-3. **Operações CRUD:**
-   - Frontend consome API REST para entidades (ex: `/api/employee/create`, `/api/invoice/list`).
-   - Permissões são verificadas via middleware hasPermission.
+### Middleware
 
-4. **Uploads:**
-   - Uploads de arquivos são tratados via multer, armazenados localmente.
-   - Metadados de uploads são salvos no MongoDB (modelo Upload).
+- **Authentication:** JWT tokens validated via `isValidAdminToken` middleware.
+- **Authorization:** `hasPermission` middleware checks user roles and permissions.
+- **File Uploads:** `multer` middleware configured for different entities, with custom storage and file path injection.
+- **Error Handling:** Centralized error handler wraps async controller functions.
 
-5. **Geração de PDFs:**
-   - Documentos financeiros podem ser gerados e baixados via rotas específicas (ex: `/download/:directory/:file`).
+### PDF Generation
 
-6. **Frontend:**
-   - React gerencia estado e roteamento, exibindo formulários e dados.
-   - Internacionalização e temas são aplicados.
+- Uses Pug templates for invoice, quote, offer, and payment PDFs.
+- PDFs are generated on create/update operations and saved to disk.
 
-## Pontos de Falha, Observabilidade e Sugestões
+### Database
 
-- **Pontos de Falha:**
-  - Conexão com MongoDB (ver tratamento de erro em backend/server.js).
-  - Uploads locais podem falhar por permissões ou espaço.
-  - Falhas na geração de PDFs podem causar erros 500.
+- MongoDB with Mongoose ODM.
+- Models include Admin, Client, Invoice, Quote, Payment, Offer, Supplier, Employee, etc.
+- Soft delete implemented via `removed` flag.
 
-- **Observabilidade:**
-  - Atualmente, logs básicos no console (ex: backend/server.js).
-  - Sugere-se implementar logging estruturado (ex: Winston) e monitoramento (ex: Prometheus, Grafana).
-  - Adicionar métricas de uso e erros.
+## Frontend Architecture
 
-- **Sugestões:**
-  - Implementar testes automatizados para backend e frontend.
-  - Usar armazenamento em nuvem para uploads (S3, Azure Blob).
-  - Melhorar tratamento de erros e mensagens para o usuário.
+### React with Vite
 
-(Evidência: backend/app.js, backend/server.js, backend/routes/, backend/middlewares/, frontend/vite.config.js)
+- Uses React 18 with functional components and hooks.
+- Vite for fast development and optimized builds.
+
+### Routing
+
+- React Router v6 with lazy loading for routes.
+- Public and private route components control access based on login state.
+
+### State Management
+
+- Redux with thunk middleware manages global state and async actions.
+
+### UI Components
+
+- Ant Design (AntD) for consistent UI elements.
+
+### Folder Structure
+
+- Components and pages organized by feature.
+- Router components define route hierarchy and access control.
+
+## Deployment Architecture
+
+- Backend and frontend are separate projects.
+- Backend runs on Node.js server with MongoDB.
+- Frontend served via development server or built static files.
+
+## Security
+
+- JWT authentication with secure cookie storage.
+- Passwords hashed with bcrypt.
+- Role-based access control enforced.
+
+## Summary
+
+The architecture balances modularity and reuse, with a clear separation between generic CRUD logic and custom business rules. The frontend leverages modern React patterns and lazy loading for performance.
+
+---
+
+*End of Architecture Document*
